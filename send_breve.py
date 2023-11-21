@@ -54,8 +54,8 @@ def get_students():
 #     pass
 
 def send_email():
-    outlook.username = 'davos@dtu.dk'
-    outlook.password = 'DTUBerta1998'
+    outlook.username = 'testmail@test.com
+    outlook.password = "123456789"
     outlook.send(
         receivers=['s194237@student.dtu.dk'],
         subject='A test subject',
