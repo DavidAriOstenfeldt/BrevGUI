@@ -7,5 +7,5 @@
     <option name="pathToExecutable" value="C:\Users\David\AppData\Local\Programs\Python\Python38\Scripts\black.exe" />
     <option name="sdkName" value="Python 3.11 (dtu_mlopsproject)" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.9" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.10 (venv)" project-jdk-type="Python SDK" />
 </project>

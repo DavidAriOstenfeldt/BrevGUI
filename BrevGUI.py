@@ -1,7 +1,10 @@
 from tkinter import *
 from tkinter import ttk
 from tkinter import filedialog
+import pandas as pd
+import numpy as np
 
+from scrollable_frame import ScrollFrame
 
 def browse_files(
     text_to_be_changed, type="single", title="Vælg fil", fallback_text="Vælg fil"
@@ -24,29 +27,68 @@ def browse_files(
     if not filename:
         text_to_be_changed.configure(text=fallback_text)
     else:
-        filename_no_path = filename.split("/")[len(filename.split("/")) - 1]
-        text_to_be_changed.configure(text=filename_no_path)
+        # filename_no_path = filename.split("/")[len(filename.split("/")) - 1]
+        text_to_be_changed.configure(text=filename)
 
 
-def set_text_of_email(text, entry, email="4-mdrs. brev"):
+def set_text_of_email(text, entry, email="4-mdrs. brev", sprog="en"):
     text.delete(1.0, "end")
     entry.delete(0, "end")
     if email == "4-mdrs. brev":
-        text.insert("end", "EYOOO")
-        entry.insert("end", "Kommende afslutning af ph.d.-studie")
+        if sprog == "dk":
+            tekst_fil = open("tekst-da-kommende-afslutning.txt", "r", encoding='utf-8')
+            entry.insert("end", "Kommende afslutning af ph.d.-studie")
+        elif sprog == "en":
+            tekst_fil = open("tekst-en-kommende-afslutning.txt", "r")
+            entry.insert("end", "Upcoming completion of PhD study")
+        text.insert("end", tekst_fil.read())
+
     elif email == "Gradbreve (Stud.)":
-        text.insert("end", "this is a gradbrev")
-        entry.insert("end", "Tildeling af grad")
+        if sprog == "dk":
+            tekst_fil = open("tekst-da-grad-stud.txt", "r", encoding='utf-8')
+            entry.insert("end", "Tildeling af grad")
+        elif sprog == "en":
+            tekst_fil = open("tekst-en-grad-stud.txt", "r", encoding='utf-8')
+            entry.insert("end", "Award of the PhD Degree")
+        text.insert("end", tekst_fil.read())
     elif email == "Gradbreve (Vejl.)":
-        text.insert("end", "this is a gradbrev to a vejleder")
-        entry.insert("end", "Tildeling af grad til ")
+        if sprog == "dk":
+            tekst_fil = open("tekst-da-grad-vejl.txt", "r", encoding='utf-8')
+            entry.insert("end", "Tildeling af grad til [student navn]")
+        elif sprog == "en":
+            tekst_fil = open("tekst-en-grad-vejl.txt", "r", encoding='utf-8')
+            entry.insert("end", "Award of the PhD Degree to [student navn]")
+        text.insert("end", tekst_fil.read())
     else:
         text.insert("end", "Something bad happened ....")
 
 
+def open_new_window(root, modtager_liste):
+    if modtager_liste == "" or modtager_liste == "Vælg modtager liste" or modtager_liste == "Vælg fil" or modtager_liste == "Vælg vedhæftede filer":
+        return
+
+    window = Toplevel(root)
+
+    window.geometry("400x400")
+    frame = ScrollFrame(window)
+
+    file = pd.read_excel(modtager_liste)
+    file = file.dropna()
+    students = np.array(file["Navn"])
+    window.title("Liste over %s modtagere" % len(students))
+    row = 0
+    for student in students:
+        Label(frame.viewPort, text=student,padx=10,pady=5).grid(row=row, column=0, sticky="w")
+        row += 1
+
+    frame.pack(side="top", fill="both", expand=True)
+
+
+
+
 def BrevGUI():
     root = Tk()
-    root.geometry("600x600")
+    root.geometry("600x625")
     root.title("BrevGUI")
 
     frm = ttk.Frame(root)
@@ -62,7 +104,7 @@ def BrevGUI():
         frm,
         clicked,
         *brev_options,
-        command=lambda x: set_text_of_email(email_text, emne_entry, email=clicked.get())
+        command=lambda x: set_text_of_email(email_text, emne_entry, email=clicked.get(), sprog=sprog.get())
     )
     brev_type.config(width=40, height=2)
 
@@ -70,7 +112,15 @@ def BrevGUI():
     afsender_label = Label(frm, text="Afsender navn")
     afsender_navn = Entry(frm, width=45)
 
+    # Sprog
+    sprog = StringVar()
+    sprog_label = Label(frm, text="Sprog:")
+    sprog_radio_en = Radiobutton(frm, text="Engelsk", variable=sprog, value="en", command=lambda: set_text_of_email(email_text, emne_entry, email=clicked.get(), sprog=sprog.get()))
+    sprog_radio_dk = Radiobutton(frm, text="Dansk", variable=sprog, value="dk", command=lambda: set_text_of_email(email_text, emne_entry, email=clicked.get(), sprog=sprog.get()))
+    sprog_radio_en.select()
+
     # Vedhæftede filer
+    path_vedh_filer = ""
     vedh_filer_label = Label(frm, text="Vedhæftede filer (valgfri)")
     vedh_filer = Button(
         frm,
@@ -86,6 +136,7 @@ def BrevGUI():
     )
 
     # Modtager liste
+    path_modtager_liste = ""
     modt_liste_label = Label(frm, text="Modtager liste")
     modt_liste = Button(
         frm,
@@ -94,7 +145,7 @@ def BrevGUI():
             modt_liste, "single", "Vælg excel-ark med modtagere", "Vælg modtager liste"
         ),
         width=39,
-        height=2,
+        height=2
     )
 
     # Emne
@@ -116,20 +167,28 @@ def BrevGUI():
         activebackground="#77DD77",
     )
 
+    # Se modtagere
+    se_modtagere_button = Button(frm, text="Se modtagere", width=30, height=2, command=lambda: open_new_window(root, modt_liste.cget("text")))
+
+
     # Grid layout
-    brev_label.grid(column=0, row=0, padx=10, pady=(10, 0))
-    brev_type.grid(column=0, row=1, padx=(10, 10), pady=(0, 10))
-    afsender_label.grid(column=1, row=0, pady=(5, 0), sticky="")
-    afsender_navn.grid(column=1, row=1, padx=(0, 10), sticky="n")
-    vedh_filer_label.grid(column=0, row=2, padx=10)
-    modt_liste_label.grid(column=1, row=2, padx=(0, 10))
-    vedh_filer.grid(column=0, row=3, padx=10)
-    modt_liste.grid(column=1, row=3, padx=(0, 10))
-    emne_label.grid(column=0, row=4, padx=10, pady=10, sticky="w")
-    emne_entry.grid(column=0, row=4, padx=(0, 10), pady=10, sticky="e", columnspan=2)
-    email_label.grid(column=0, row=5, padx=10, sticky="w")
-    email_text.grid(column=0, row=6, padx=10, columnspan=2)
-    send_button.grid(column=1, row=7, padx=10, pady=10, sticky="e")
+    brev_label.grid(column=0, row=0, padx=10, pady=(10, 0), columnspan=2)
+    brev_type.grid(column=0, row=1, padx=(10, 10), pady=(0, 10), columnspan=2)
+    afsender_label.grid(column=2, row=0, pady=(5, 0), sticky="", columnspan=2)
+    afsender_navn.grid(column=2, row=1, padx=(0, 10), sticky="n", columnspan=2)
+    vedh_filer_label.grid(column=0, row=2, padx=10, columnspan=2)
+    modt_liste_label.grid(column=2, row=2, padx=(0, 10), columnspan=2)
+    vedh_filer.grid(column=0, row=3, padx=10, columnspan=2)
+    modt_liste.grid(column=2, row=3, padx=(0, 10), columnspan=2)
+    sprog_label.grid(column=0, row=4, padx=10, pady=10, sticky="w")
+    sprog_radio_dk.grid(column=1, row=4, padx=0)
+    sprog_radio_en.grid(column=2, row=4, padx=10)
+    emne_label.grid(column=0, row=5, padx=10, pady=10, sticky="w")
+    emne_entry.grid(column=1, row=5, padx=(0, 10), pady=10, sticky="e", columnspan=3)
+    email_label.grid(column=0, row=6, padx=10, sticky="w", columnspan=4)
+    email_text.grid(column=0, row=7, padx=10, columnspan=4)
+    se_modtagere_button.grid(column=0, row=8, padx=10, pady=10, sticky="w", columnspan=2)
+    send_button.grid(column=2, row=8, padx=10, pady=10, sticky="e", columnspan=2)
 
     root.mainloop()
 
