@@ -5,6 +5,7 @@ import pandas as pd
 import numpy as np
 
 from scrollable_frame import ScrollFrame
+from send_breve import send_email, get_secretaries, get_students, get_vedh_filer
 
 def browse_files(
     text_to_be_changed, type="single", title="Vælg fil", fallback_text="Vælg fil"
@@ -84,6 +85,34 @@ def open_new_window(root, modtager_liste):
     frame.pack(side="top", fill="both", expand=True)
 
 
+def open_error_window(root, error_text):
+    window = Toplevel(root)
+    window.geometry("200x30")
+    window.title("Fejl")
+    Label(window, text=error_text).pack()
+
+
+def update_send_button_color(send_breve, afsender_navn, vedh_filer, modt_liste):
+    if not afsender_navn.get() or vedh_filer['text'] == "Vælg vedhæftede filer" or modt_liste['text'] == "Vælg modtager liste":
+        send_breve.config(bg='#f69697', activebackground='#f69697')
+    else:
+        send_breve.config(bg='#77DD77', activebackground='#77DD77')
+
+
+def send_breve(root, send_button, modtager_liste, vedh_filer, afsender_navn, brev_type, secretary_path=r'C:\Users\s194237\OneDrive - Danmarks Tekniske Universitet\Skrivebord\Oversigt-test.xlsx'):
+    if send_button['bg'] == '#f69697':
+        open_error_window(root, "Du mangler at udfylde nogle felter")
+        return
+    
+    students = get_students(modtager_liste)
+    secretaries = get_secretaries(secretary_path, brev_type)
+    vedh_filer_paths = get_vedh_filer(vedh_filer)
+
+    for i in range(len(students[0])):
+        to = students[0][i]
+        cc = secretaries[students[1][i]]
+        vedh_fil = vedh_filer_paths[i]
+        print('to: ', to, 'cc: ', cc, 'vedh_filer: ', vedh_fil)
 
 
 def BrevGUI():
@@ -110,7 +139,9 @@ def BrevGUI():
 
     # Indtast navn
     afsender_label = Label(frm, text="Afsender navn")
-    afsender_navn = Entry(frm, width=45)
+    afsender_navn_var = StringVar()
+    afsender_navn = Entry(frm, textvariable=afsender_navn_var, width=45)
+    afsender_navn_var.trace('w', lambda *args: update_send_button_color(send_button, afsender_navn, vedh_filer, modt_liste))
 
     # Sprog
     sprog = StringVar()
@@ -125,12 +156,14 @@ def BrevGUI():
     vedh_filer = Button(
         frm,
         text="Vælg vedhæftede filer",
-        command=lambda: browse_files(
+        command=lambda: [browse_files(
             vedh_filer,
             "directory",
             "Vælg mappe med vedhæftede filer",
             "Vælg vedhæftede filer",
-        ),
+        ), update_send_button_color(
+            send_button, afsender_navn, vedh_filer, modt_liste
+        )],
         width=39,
         height=2,
     )
@@ -141,9 +174,11 @@ def BrevGUI():
     modt_liste = Button(
         frm,
         text="Vælg modtager liste",
-        command=lambda: browse_files(
+        command=lambda: [browse_files(
             modt_liste, "single", "Vælg excel-ark med modtagere", "Vælg modtager liste"
-        ),
+        ), update_send_button_color(
+            send_button, afsender_navn, vedh_filer, modt_liste
+        )],
         width=39,
         height=2
     )
@@ -163,8 +198,16 @@ def BrevGUI():
         text="SEND BREVE",
         width=30,
         height=2,
-        bg="#77DD77",
-        activebackground="#77DD77",
+        bg='#f69697',
+        activebackground='#f69697',
+        command=lambda: send_breve(
+            root, 
+            send_button,
+            modt_liste.cget('text'), 
+            vedh_filer.cget('text'),
+            afsender_navn_var.get(),
+            clicked.get(), 
+        )
     )
 
     # Se modtagere
