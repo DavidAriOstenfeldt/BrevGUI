@@ -34,25 +34,6 @@ def get_students():
     return students
 
 
-# def send_email():
-#     body = "Subject: Subject here . \n" \
-#            "Dear ContactName, \n\n" + \
-#            "Email Body Here \n This is a new line. \n\n This is a double new line" + \
-#            "\nBest regards \n David"
-#     try:
-#         smtpObj = smtplib.SMTP('smtp.office365.com', 587)
-#     except Exception as e:
-#         print(e)
-#         smtpObj = smtplib.SMTP_SSL('smtp.office365.com', 465)
-#
-#     smtpObj.ehlo()
-#     smtpObj.starttls()
-#     smtpObj.login('davos@dtu.dk', 'DTUBerta1998')
-#     smtpObj.sendmail('davos@dtu.dk', 'davidostenfeldt@hotmail.com', body)
-#
-#     smtpObj.quit()
-#     pass
-
 def send_email():
     outlook.username = 'testmail@test.com'
     outlook.password = "123456789"
