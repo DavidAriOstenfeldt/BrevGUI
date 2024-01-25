@@ -5,7 +5,7 @@ import pandas as pd
 import numpy as np
 
 from scrollable_frame import ScrollFrame
-from send_breve import send_email, get_secretaries, get_students, get_vedh_filer
+from send_breve import send_email, get_secretaries, get_students, get_vedh_filer, get_vejledere, display_email
 
 def browse_files(
     text_to_be_changed, type="single", title="Vælg fil", fallback_text="Vælg fil"
@@ -64,7 +64,7 @@ def set_text_of_email(text, entry, email="4-mdrs. brev", sprog="en"):
         text.insert("end", "Something bad happened ....")
 
 
-def open_new_window(root, modtager_liste):
+def open_new_window(root, modtager_liste, brev_type="4-mdrs. brev"):
     if modtager_liste == "" or modtager_liste == "Vælg modtager liste" or modtager_liste == "Vælg fil" or modtager_liste == "Vælg vedhæftede filer":
         return
 
@@ -75,20 +75,21 @@ def open_new_window(root, modtager_liste):
 
     file = pd.read_excel(modtager_liste)
     file = file.dropna()
-    students = np.array(file["Navn"])
-    window.title("Liste over %s modtagere" % len(students))
+    students = get_students(modtager_liste)
+    secretaries = get_secretaries(brev_type=brev_type)
+    window.title("Liste over %s modtagere" % len(students[0]))
     row = 0
-    for student in students:
-        Label(frame.viewPort, text=student,padx=10,pady=5).grid(row=row, column=0, sticky="w")
+    for i in range(len(students[0])):
+        Label(frame.viewPort, text=f'to: {students[0][i]} cc: {secretaries[students[1][i]]}', padx=10,pady=5).grid(row=row, column=0, sticky="w")
         row += 1
 
     frame.pack(side="top", fill="both", expand=True)
 
 
-def open_error_window(root, error_text):
+def open_error_window(root, error_text, window_title='Fejl', size="200x30"):
     window = Toplevel(root)
-    window.geometry("200x30")
-    window.title("Fejl")
+    window.geometry(size)
+    window.title(window_title)
     Label(window, text=error_text).pack()
 
 
@@ -99,20 +100,49 @@ def update_send_button_color(send_breve, afsender_navn, vedh_filer, modt_liste):
         send_breve.config(bg='#77DD77', activebackground='#77DD77')
 
 
-def send_breve(root, send_button, modtager_liste, vedh_filer, afsender_navn, brev_type, secretary_path=r'C:\Users\s194237\OneDrive - Danmarks Tekniske Universitet\Skrivebord\Oversigt-test.xlsx'):
+def send_breve(root, send_button, modtager_liste, vedh_filer, afsender_navn, brev_type, emne, indhold, secretary_path=r'D:\OneDrive\Arbejde\PHD\BrevGUI\Oversigt.xlsx'):
     if send_button['bg'] == '#f69697':
         open_error_window(root, "Du mangler at udfylde nogle felter")
         return
     
     students = get_students(modtager_liste)
-    secretaries = get_secretaries(secretary_path, brev_type)
-    vedh_filer_paths = get_vedh_filer(vedh_filer)
-
+    secretaries = get_secretaries(brev_type=brev_type) #secretaries = get_secretaries(secretary_path, type=brev_type)
+    
+    if vedh_filer != "Vælg vedhæftede filer":
+        vedh_filer_paths = get_vedh_filer(vedh_filer)
+        if len(vedh_filer_paths) != len(students[0]):
+            open_error_window(root, "Antallet af vedhæftede filer passer ikke med antallet af modtagere", size="400x30")
+            return
+    if brev_type == "Gradbreve (Vejl.)":
+        vejledere = get_vejledere(modtager_liste)
+    
     for i in range(len(students[0])):
-        to = students[0][i]
+        emne_text = emne
+        indhold_text = indhold    
+        # Replace all placeholders in email with correct names
+        emne_text = emne_text.replace('[student navn]', students[0][i])
+        indhold_text = indhold_text.replace('[student navn]', students[0][i])
+        if brev_type == "Gradbreve (Vejl.)":
+            indhold_text = indhold_text.replace('[modtager navn]', vejledere[0][i])
+            modtager = vejledere[0][i]
+        else:
+            indhold_text = indhold_text.replace('[modtager navn]', students[0][i])
+            modtager = students[0][i]
+        
+        indhold_text = indhold_text.replace('[afsender navn]', afsender_navn)
+
+        try:
+            cc = secretaries[students[1][i]]
+        except KeyError:
+            open_error_window(root, f'Kunne ikke finde sekretær for {students[0][i]}\nTjek om du har valgt den rigtige brevtype og modtagerliste', size="325x40")
+            return
+        
         cc = secretaries[students[1][i]]
         vedh_fil = vedh_filer_paths[i]
-        print('to: ', to, 'cc: ', cc, 'vedh_filer: ', vedh_fil)
+        # display_email(modtager, cc, emne_text, indhold_text, vedh_fil) # For testing purposes
+        send_email(modtager, cc, emne_text, indhold_text, vedh_fil)
+        
+    open_error_window(root, f'Sendte mail til {len(students[0])} modtagere', window_title='Succes', size="325x40")
 
 
 def BrevGUI():
@@ -152,7 +182,7 @@ def BrevGUI():
 
     # Vedhæftede filer
     path_vedh_filer = ""
-    vedh_filer_label = Label(frm, text="Vedhæftede filer (valgfri)")
+    vedh_filer_label = Label(frm, text="Vedhæftede filer")
     vedh_filer = Button(
         frm,
         text="Vælg vedhæftede filer",
@@ -206,12 +236,14 @@ def BrevGUI():
             modt_liste.cget('text'), 
             vedh_filer.cget('text'),
             afsender_navn_var.get(),
-            clicked.get(), 
+            clicked.get(),
+            emne_entry.get(),
+            email_text.get("1.0", "end")
         )
     )
 
     # Se modtagere
-    se_modtagere_button = Button(frm, text="Se modtagere", width=30, height=2, command=lambda: open_new_window(root, modt_liste.cget("text")))
+    se_modtagere_button = Button(frm, text="Se modtagere", width=30, height=2, command=lambda: open_new_window(root, modt_liste.cget("text"), clicked.get()))
 
 
     # Grid layout

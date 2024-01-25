@@ -4,7 +4,7 @@ import win32com.client as win32
 import os
 
 
-def get_secretaries(file_path, brev_type='4mdr'):
+def get_secretaries(file_path='Oversigt-test.xlsx', brev_type='4mdr'):
     file = pd.read_excel(file_path)
     if brev_type == '4mdr' or brev_type == '4-mdrs. brev':
         secretaries = {"Institut for Matematik og Computer Science": file["Mailkontakt"][0],
@@ -56,6 +56,15 @@ def get_students(file_path):
     students = np.array([file["Navn"], file["Institut"]])
     return students
 
+
+def get_vejledere(file_path):
+    file = pd.read_excel(file_path)
+    file = file.dropna()
+    # TODO: FIX PATH
+    vejledere = np.array([file["Hovedvejleder"], file["Institut"]])
+    return vejledere
+
+
 def get_vedh_filer(folder_path):
     vedh_filer = []
     # Get path for all files in folder
@@ -71,7 +80,7 @@ def get_vedh_filer(folder_path):
 
 def send_email(recipient_name, cc_name, subject_text, body_text, attachment=''):
     outlook = win32.Dispatch('outlook.application')
-    namespace = outlook.GetNamespace('MAPI')
+    #namespace = outlook.GetNamespace('MAPI')
     mail = outlook.CreateItem(0)
     mail.Subject = subject_text
     mail.Body = body_text
@@ -91,9 +100,32 @@ def send_email(recipient_name, cc_name, subject_text, body_text, attachment=''):
         if not cc_recipient.Resolved:
             print(f'Could not resolve CC recipient: {cc_name}')
 
+def display_email(recipient_name, cc_name, subject_text, body_text, attachment=''):
+    outlook = win32.Dispatch('outlook.application')
+    #namespace = outlook.GetNamespace('MAPI')
+    mail = outlook.CreateItem(0)
+    mail.Subject = subject_text
+    mail.Body = body_text
+    recipient = mail.Recipients.Add(recipient_name)
+    recipient.Resolve()
+    cc_recipient = mail.Recipients.Add(cc_name)
+    cc_recipient.Type = 2 # 2 corresponds to CC
+    cc_recipient.Resolve()
+
+    if recipient.Resolved and cc_recipient.Resolved:
+        if attachment != '':
+            mail.Attachments.Add(attachment)
+        mail.display()
+    else:
+        if not recipient.Resolved:
+            print(f'Could not resolve recipient: {recipient_name}')
+        if not cc_recipient.Resolved:
+            print(f'Could not resolve CC recipient: {cc_name}')
+
+
 def main():
-    secretaries = get_secretaries(r'C:\Users\s194237\OneDrive - Danmarks Tekniske Universitet\Skrivebord\Oversigt over skoleleder og sekretær.xlsx', type="4mdr")
-    students = get_students(r'C:\Users\s194237\OneDrive - Danmarks Tekniske Universitet\Skrivebord\Marts 2024.xlsx')
+    #secretaries = get_secretaries(r'C:\Users\s194237\OneDrive - Danmarks Tekniske Universitet\Skrivebord\Oversigt over skoleleder og sekretær.xlsx', type="4mdr")
+    #students = get_students(r'C:\Users\s194237\OneDrive - Danmarks Tekniske Universitet\Skrivebord\Marts 2024.xlsx')
 
     send_email('David Ari Ostenfeldt', 'David Ari Ostenfeldt', 'This is the subject', 'This is the body \nWith newlines \nwoooow\n\nBest regards,\nDavid Ari Ostenfeldt')
 
