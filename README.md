@@ -12,4 +12,6 @@ Ensure that the following packages are installed when building:
 * Numpy
 * Openpyxl
 
-The program needs the .txt files in the same folder, in order to run.
+## Notes
+- The program needs the .txt files in the same folder, in order to run.
+- The program needs the list of secretaries at the institutes in order to run.
