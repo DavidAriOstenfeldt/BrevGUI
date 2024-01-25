@@ -4,7 +4,7 @@ import win32com.client as win32
 import os
 
 
-def get_secretaries(file_path='Oversigt-test.xlsx', brev_type='4mdr'):
+def get_secretaries(file_path='Oversigt over skoleleder og sekretær.xlsx', brev_type='4mdr'):
     file = pd.read_excel(file_path)
     if brev_type == '4mdr' or brev_type == '4-mdrs. brev':
         secretaries = {"Institut for Matematik og Computer Science": file["Mailkontakt"][0],
