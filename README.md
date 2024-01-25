@@ -4,7 +4,7 @@ A program to automate sending out personalised emails with attachments to indivi
 To build using PyInstaller:
 
 ```
-python -m PyInstaller BrevGUI.py -F -w -i icon.ico
+python -m PyInstaller BrevGUI.py -F
 ```
 
 Ensure that the following packages are installed when building:
