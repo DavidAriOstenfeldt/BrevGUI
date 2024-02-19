@@ -3,9 +3,9 @@ from tkinter import ttk
 from tkinter import filedialog
 import pandas as pd
 import numpy as np
-
+import os
 from scrollable_frame import ScrollFrame
-from send_breve import send_email, get_secretaries, get_students, get_vedh_filer, get_vejledere, display_email
+from send_breve import send_email, get_secretaries, get_students, get_vedh_filer, get_vejledere, display_email, get_final_recommendations, levenstein_distance
 
 def browse_files(
     text_to_be_changed, type="single", title="Vælg fil", fallback_text="Vælg fil"
@@ -100,7 +100,7 @@ def update_send_button_color(send_breve, afsender_navn, vedh_filer, modt_liste):
         send_breve.config(bg='#77DD77', activebackground='#77DD77')
 
 
-def send_breve(root, send_button, modtager_liste, vedh_filer, afsender_navn, brev_type, emne, indhold, secretary_path=r'D:\OneDrive\Arbejde\PHD\BrevGUI\Oversigt.xlsx'):
+def send_breve(root, send_button, modtager_liste, vedh_filer, afsender_navn, brev_type, emne, indhold):
     if send_button['bg'] == '#f69697':
         open_error_window(root, "Du mangler at udfylde nogle felter")
         return
@@ -113,9 +113,18 @@ def send_breve(root, send_button, modtager_liste, vedh_filer, afsender_navn, bre
         if len(vedh_filer_paths) != len(students[0]):
             open_error_window(root, "Antallet af vedhæftede filer passer ikke med antallet af modtagere", size="400x30")
             return
+        if brev_type == "Gradbreve (Stud.)":
+            final_rec_dir = os.path.dirname(vedh_filer)
+            final_rec_dir = os.path.join(final_rec_dir, "final recommendations")
+            final_recommendations = get_final_recommendations(final_rec_dir)
+            if len(final_recommendations) != len(students[0]):
+                open_error_window(root, "Antallet af final recommendation filer passer ikke med antallet af modtagere", size="400x30")
+                return
+
     if brev_type == "Gradbreve (Vejl.)":
         vejledere = get_vejledere(modtager_liste)
     
+    unresolved = []
     for i in range(len(students[0])):
         emne_text = emne
         indhold_text = indhold    
@@ -139,10 +148,30 @@ def send_breve(root, send_button, modtager_liste, vedh_filer, afsender_navn, bre
         
         cc = secretaries[students[1][i]]
         vedh_fil = vedh_filer_paths[i]
-        # display_email(modtager, cc, emne_text, indhold_text, vedh_fil) # For testing purposes
-        send_email(modtager, cc, emne_text, indhold_text, vedh_fil)
         
-    open_error_window(root, f'Sendte mail til {len(students[0])} modtagere', window_title='Succes', size="325x40")
+
+        if brev_type == "Gradbreve (Stud.)":
+            best_match_score = 0
+            for recommendation in final_recommendations:
+                score = 0
+                for name in students[0][i].split(' '):
+                    if name in recommendation:
+                        score += 1
+                        
+                if score > best_match_score:
+                    best_match_score = score
+                    best_match = recommendation
+
+            vedh_fil = vedh_filer_paths[i] + ';' + best_match
+
+        unresolved_ = display_email(modtager, cc, emne_text, indhold_text, vedh_fil) # For testing purposes
+        # unresolved_ = send_email(modtager, cc, emne_text, indhold_text, vedh_fil)
+        unresolved += unresolved_
+
+    if len(unresolved) > 0:
+        open_error_window(root, f'Kunne ikke sende mail til {len(unresolved)} modtagere:\n{unresolved}', size="400x40")
+        
+    open_error_window(root, f'Sendte mail til {len(students[0]) - len(unresolved)} modtagere', window_title='Succes', size="325x40")
 
 
 def BrevGUI():
