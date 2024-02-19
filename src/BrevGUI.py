@@ -35,29 +35,30 @@ def browse_files(
 def set_text_of_email(text, entry, email="4-mdrs. brev", sprog="en"):
     text.delete(1.0, "end")
     entry.delete(0, "end")
+    content_folder = "content/"
     if email == "4-mdrs. brev":
         if sprog == "dk":
-            tekst_fil = open("tekst-da-kommende-afslutning.txt", "r", encoding='utf-8')
+            tekst_fil = open(content_folder + "tekst-da-kommende-afslutning.txt", "r", encoding='utf-8')
             entry.insert("end", "Kommende afslutning af ph.d.-studie")
         elif sprog == "en":
-            tekst_fil = open("tekst-en-kommende-afslutning.txt", "r")
+            tekst_fil = open(content_folder + "tekst-en-kommende-afslutning.txt", "r")
             entry.insert("end", "Upcoming completion of PhD study")
         text.insert("end", tekst_fil.read())
 
     elif email == "Gradbreve (Stud.)":
         if sprog == "dk":
-            tekst_fil = open("tekst-da-grad-stud.txt", "r", encoding='utf-8')
+            tekst_fil = open(content_folder + "tekst-da-grad-stud.txt", "r", encoding='utf-8')
             entry.insert("end", "Tildeling af grad")
         elif sprog == "en":
-            tekst_fil = open("tekst-en-grad-stud.txt", "r", encoding='utf-8')
+            tekst_fil = open(content_folder + "tekst-en-grad-stud.txt", "r", encoding='utf-8')
             entry.insert("end", "Award of the PhD Degree")
         text.insert("end", tekst_fil.read())
     elif email == "Gradbreve (Vejl.)":
         if sprog == "dk":
-            tekst_fil = open("tekst-da-grad-vejl.txt", "r", encoding='utf-8')
+            tekst_fil = open(content_folder + "tekst-da-grad-vejl.txt", "r", encoding='utf-8')
             entry.insert("end", "Tildeling af grad til [student navn]")
         elif sprog == "en":
-            tekst_fil = open("tekst-en-grad-vejl.txt", "r", encoding='utf-8')
+            tekst_fil = open(content_folder + "tekst-en-grad-vejl.txt", "r", encoding='utf-8')
             entry.insert("end", "Award of the PhD Degree to [student navn]")
         text.insert("end", tekst_fil.read())
     else:
