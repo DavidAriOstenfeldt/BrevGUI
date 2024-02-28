@@ -88,3 +88,90 @@ def get_final_recommendations(folder_path):
     final_recommendations.sort(key=lambda f: int(''.join(filter(str.isdigit, f))))
 
     return final_recommendations
+
+
+def get_best_matching_final_recommendation(student_name, final_recommendations):
+    best_match_score = 0
+    best_recommendation = ""
+    for recommendation in final_recommendations:
+        score = 0
+        for name in student_name.split(' '):
+            if name.lower() in recommendation.lower():
+                score += 1
+        if score > best_match_score:
+            best_match_score = score
+            best_recommendation = recommendation
+
+    return best_recommendation
+
+
+def test_recipient(recipient_name):
+    outlook = win32.Dispatch('outlook.application')
+    mail = outlook.CreateItem(0)
+    recipient = mail.Recipients.Add(recipient_name)
+    recipient.Resolve()
+    return recipient.Resolved
+
+
+def send_email(recipient_name, cc_name, subject_text, body_text, attachment=''):
+    outlook = win32.Dispatch('outlook.application')
+    #namespace = outlook.GetNamespace('MAPI')
+    mail = outlook.CreateItem(0)
+    mail.Subject = subject_text
+    mail.Body = body_text
+    recipient = mail.Recipients.Add(recipient_name)
+    recipient.Resolve()
+    cc_recipient = mail.Recipients.Add(cc_name)
+    cc_recipient.Type = 2 # 2 corresponds to CC
+    cc_recipient.Resolve()
+
+    unresolved_cc = ""
+    unresolved_recipient = ""
+    if recipient.Resolved and cc_recipient.Resolved:
+        if attachment != '':
+            for path in attachment.split(';'):
+                mail.Attachments.Add(path)
+            # mail.Attachments.Add(attachment)
+        mail.Send()
+    else:
+        if not recipient.Resolved:
+            print(f'Could not resolve recipient: {recipient_name}')
+            unresolved_recipient = recipient_name
+        if not cc_recipient.Resolved:
+            print(f'Could not resolve CC recipient: {cc_name}')
+            unresolved_cc = cc_name
+
+    return unresolved_recipient, unresolved_cc
+
+
+def display_email(recipient_name, cc_name, subject_text, body_text, attachment=''):
+    outlook = win32.Dispatch('outlook.application')
+    #namespace = outlook.GetNamespace('MAPI')
+    mail = outlook.CreateItem(0)
+    mail.Subject = subject_text
+    mail.Body = body_text
+    recipient = mail.Recipients.Add(recipient_name)
+    recipient.Resolve()
+    cc_recipient = mail.Recipients.Add(cc_name)
+    cc_recipient.Type = 2 # 2 corresponds to CC
+    cc_recipient.Resolve()
+
+    unresolved_recipient = ""
+    unresolved_cc = ""
+    if recipient.Resolved and cc_recipient.Resolved:
+        if attachment != '':
+            for path in attachment.split(';'):
+                mail.Attachments.Add(path)
+            #mail.Attachments.Add(attachment)
+        mail.display()
+    else:
+        if not recipient.Resolved:
+            print(f'Could not resolve recipient: {recipient_name}')
+            unresolved_recipient = recipient_name
+        if not cc_recipient.Resolved:
+            print(f'Could not resolve CC recipient: {cc_name}')
+            unresolved_cc = cc_name
+
+    return unresolved_recipient, unresolved_cc
+
+

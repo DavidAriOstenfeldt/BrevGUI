@@ -1,303 +1,806 @@
-from tkinter import *
-from tkinter import ttk
-from tkinter import filedialog
+import tkinter as tk
+from typing import Tuple
+import customtkinter as ctk
 import pandas as pd
-import numpy as np
 import os
-from scrollable_frame import ScrollFrame
-from send_breve import send_email, get_secretaries, get_students, get_vedh_filer, get_vejledere, display_email, get_final_recommendations, levenstein_distance
-
-def browse_files(
-    text_to_be_changed, type="single", title="Vælg fil", fallback_text="Vælg fil"
-):
-    if type == "single":
-        filename = filedialog.askopenfilename(
-            initialdir="/",
-            title=title,
-            filetypes=(
-                ("all files", "*.*"),
-                ("Excel files", "*.xlsx"),
-                ("Text files", "*.txt*"),
-            ),
-        )
-    elif type == "directory":
-        filename = filedialog.askdirectory(initialdir="/", title=title)
-    else:
-        filename = ""
-
-    if not filename:
-        text_to_be_changed.configure(text=fallback_text)
-    else:
-        # filename_no_path = filename.split("/")[len(filename.split("/")) - 1]
-        text_to_be_changed.configure(text=filename)
+import utils
 
 
-def set_text_of_email(text, entry, email="4-mdrs. brev", sprog="en"):
-    text.delete(1.0, "end")
-    entry.delete(0, "end")
-    content_folder = "content/"
-    if email == "4-mdrs. brev":
-        if sprog == "dk":
-            tekst_fil = open(content_folder + "tekst-da-kommende-afslutning.txt", "r", encoding='utf-8')
-            entry.insert("end", "Kommende afslutning af ph.d.-studie")
-        elif sprog == "en":
-            tekst_fil = open(content_folder + "tekst-en-kommende-afslutning.txt", "r")
-            entry.insert("end", "Upcoming completion of PhD study")
-        text.insert("end", tekst_fil.read())
 
-    elif email == "Gradbreve (Stud.)":
-        if sprog == "dk":
-            tekst_fil = open(content_folder + "tekst-da-grad-stud.txt", "r", encoding='utf-8')
-            entry.insert("end", "Tildeling af grad")
-        elif sprog == "en":
-            tekst_fil = open(content_folder + "tekst-en-grad-stud.txt", "r", encoding='utf-8')
-            entry.insert("end", "Award of the PhD Degree")
-        text.insert("end", tekst_fil.read())
-    elif email == "Gradbreve (Vejl.)":
-        if sprog == "dk":
-            tekst_fil = open(content_folder + "tekst-da-grad-vejl.txt", "r", encoding='utf-8')
-            entry.insert("end", "Tildeling af grad til [student navn]")
-        elif sprog == "en":
-            tekst_fil = open(content_folder + "tekst-en-grad-vejl.txt", "r", encoding='utf-8')
-            entry.insert("end", "Award of the PhD Degree to [student navn]")
-        text.insert("end", tekst_fil.read())
-    else:
-        text.insert("end", "Something bad happened ....")
+class MainApplication(ctk.CTk):
+    def __init__(self) -> None:
+        super().__init__()
 
+        # Configure the main window
+        self.title('BrevGUI')
+        self.geometry(f'{650}x{625}')
 
-def open_new_window(root, modtager_liste, brev_type="4-mdrs. brev"):
-    if modtager_liste == "" or modtager_liste == "Vælg modtager liste" or modtager_liste == "Vælg fil" or modtager_liste == "Vælg vedhæftede filer":
-        return
+        # Configure the layout of the main window
+        self.grid_columnconfigure((0,1), weight=1)
+        self.grid_rowconfigure((0,1,2,3,5), weight=1)
+        self.grid_rowconfigure(4, weight=3)
 
-    window = Toplevel(root)
+        ##### ROW 1 #####
+        self.letter_type_frame = LetterTypeFrame(self, width=300, corner_radius=0)
+        self.letter_type_frame.grid(row=0, column=0, sticky='nsew')
+        self.letter_type_frame.grid_rowconfigure(0, weight=1)
+        self.letter_type_frame.grid_rowconfigure(1, weight=2)
+        
+        self.sender_frame = SenderFrame(self, width=300, corner_radius=0)
+        self.sender_frame.grid(row=0, column=1, sticky='nsew')
+        self.sender_frame.grid_rowconfigure(0, weight=1)
+        self.sender_frame.grid_rowconfigure(1, weight=2)
 
-    window.geometry("400x400")
-    frame = ScrollFrame(window)
+        ##### ROW 2 #####
+        self.file_frame = FileFrame(self, width=300, corner_radius=0)
+        self.file_frame.grid(row=1, column=0, sticky='nsew')
+        self.file_frame.grid_rowconfigure(0, weight=1)
+        self.file_frame.grid_rowconfigure(1, weight=2)
 
-    file = pd.read_excel(modtager_liste)
-    file = file.dropna()
-    students = get_students(modtager_liste)
-    secretaries = get_secretaries(brev_type=brev_type)
-    window.title("Liste over %s modtagere" % len(students[0]))
-    row = 0
-    for i in range(len(students[0])):
-        Label(frame.viewPort, text=f'to: {students[0][i]} cc: {secretaries[students[1][i]]}', padx=10,pady=5).grid(row=row, column=0, sticky="w")
-        row += 1
+        self.recipient_frame = RecipientFrame(self, width=300, corner_radius=0)
+        self.recipient_frame.grid(row=1, column=1, sticky='nsew')
+        self.recipient_frame.grid_rowconfigure(0, weight=1)
+        self.recipient_frame.grid_rowconfigure(1, weight=2)
 
-    frame.pack(side="top", fill="both", expand=True)
+        ##### ROW 3 #####
+        self.language_frame = LanguageFrame(self, width=300, corner_radius=0)
+        self.language_frame.grid(row=2, column=0, columnspan=2, sticky='nsew')
+        self.language_frame.grid_rowconfigure(0, weight=1)
+        self.language_frame.grid_columnconfigure(0, weight=1)
+        self.language_frame.grid_columnconfigure((1,2,3), weight=3)
 
+        ##### ROW 4 #####
+        self.subject_frame = SubjectFrame(self, width=600, corner_radius=0)
+        self.subject_frame.grid(row=3, column=0, columnspan=2, sticky='nsew')
+        self.subject_frame.grid_rowconfigure(0, weight=1)
+        self.subject_frame.grid_columnconfigure(0, weight=1)
+        self.subject_frame.grid_columnconfigure(1, weight=3)
 
-def open_error_window(root, error_text, window_title='Fejl', size="200x30"):
-    window = Toplevel(root)
-    window.geometry(size)
-    window.title(window_title)
-    Label(window, text=error_text).pack()
+        ##### ROW 5 #####
+        self.content_frame = ContentFrame(self, width=600, corner_radius=0)
+        self.content_frame.grid(row=4, column=0, columnspan=2, sticky='nsew')
+        self.content_frame.grid_rowconfigure(0, weight=1)
+        self.content_frame.grid_rowconfigure(1, weight=3)
+        self.content_frame.grid_columnconfigure(0, weight=1)
 
+        ##### ROW 6 #####
+        self.send_button_frame = BottomFrame(self, width=600, corner_radius=0)
+        self.send_button_frame.grid(row=5, column=0, columnspan=2, sticky='nsew')
+        self.send_button_frame.grid_rowconfigure(0, weight=1)
+        self.send_button_frame.grid_columnconfigure((0,1,2), weight=1)
+        
+        # Setup popup window
+        self.popup_window = None
+        self.popup_window_send = None
+        
+        self.update_send_button()
+     
+        
+    def set_content(self, _current_value=None):
+        brev_type = self.letter_type_frame.get()
 
-def update_send_button_color(send_breve, afsender_navn, vedh_filer, modt_liste):
-    if not afsender_navn.get() or vedh_filer['text'] == "Vælg vedhæftede filer" or modt_liste['text'] == "Vælg modtager liste":
-        send_breve.config(bg='#f69697', activebackground='#f69697')
-    else:
-        send_breve.config(bg='#77DD77', activebackground='#77DD77')
-
-
-def send_breve(root, send_button, modtager_liste, vedh_filer, afsender_navn, brev_type, emne, indhold):
-    if send_button['bg'] == '#f69697':
-        open_error_window(root, "Du mangler at udfylde nogle felter")
-        return
-    
-    students = get_students(modtager_liste)
-    secretaries = get_secretaries(brev_type=brev_type) #secretaries = get_secretaries(secretary_path, type=brev_type)
-    
-    if vedh_filer != "Vælg vedhæftede filer":
-        vedh_filer_paths = get_vedh_filer(vedh_filer)
-        if len(vedh_filer_paths) != len(students[0]):
-            open_error_window(root, "Antallet af vedhæftede filer passer ikke med antallet af modtagere", size="400x30")
+        if brev_type not in self.letter_type_frame.brevtyper:
+            self.open_popup_window(size=[300, 125], title="Fejl", message="Brevtype er ikke valgt eller ugyldig.")
             return
-        if brev_type == "Gradbreve (Stud.)":
-            final_rec_dir = os.path.dirname(vedh_filer)
-            final_rec_dir = os.path.join(final_rec_dir, "final recommendations")
-            final_recommendations = get_final_recommendations(final_rec_dir)
-            if len(final_recommendations) != len(students[0]):
-                open_error_window(root, "Antallet af final recommendation filer passer ikke med antallet af modtagere", size="400x30")
+        
+        if self.language_frame.get() == 'auto':
+            _language = 'da'
+        else:
+            _language = self.language_frame.get()
+
+        text_file = open('content/' + _language + '-' + brev_type + '.txt', 'r', encoding='utf-8')
+        text = text_file.read()
+        text_file.close()
+
+        # Set subject
+        subject = text.split('Emne: ')[1].split('\n')[0]
+        self.subject_frame.set(subject)
+
+        # Set content
+        content = text.split('Indhold:\n')[1]
+        self.content_frame.set(content)
+        
+    
+    def open_popup_window(self, size=[300, 125], title="Popup window", message="This is a popup window."):
+        if self.popup_window is None or not self.popup_window.winfo_exists():
+            self.popup_window = PopupWindow(self, size, title, message)
+            self.popup_window.focus()
+        else:
+            self.popup_window.focus()
+
+    def open_send_popup_window(self, size=[200, 125], unresolved_names=[]):
+        if self.popup_window_send is None or not self.popup_window_send.winfo_exists():
+            self.popup_window_send = SendPopupWindow(self, size, unresolved_names)
+            self.popup_window_send.focus()
+        else:
+            self.popup_window_send.focus()
+            
+
+    def update_send_button(self):
+        # Do a manual check, to not incur errors
+        if isinstance(self.file_frame, FileFrame):
+            if self.letter_type_frame.brevtype_var.get() == "Vælg brevtype" or self.file_frame.file_button._text == 'Vælg mappe med breve' or self.recipient_frame.recipient_button._text == 'Vælg modtager liste':
+                self.send_button_frame.send_button.configure(state='disabled')
+            else:
+                self.send_button_frame.send_button.configure(state='normal')
+        else:
+            if self.letter_type_frame.brevtype_var.get() == "Vælg brevtype" or self.file_frame.letters_button._text == 'Vælg mappe med breve' or self.file_frame.final_recommendations_button._text == 'Vælg mappe med\nfinal recommendations' or self.recipient_frame.recipient_button._text == 'Vælg modtager liste':
+                self.send_button_frame.send_button.configure(state='disabled')
+            else:
+                self.send_button_frame.send_button.configure(state='normal')
+
+    
+    def test_breve(self):
+        if self.sender_frame.get() is None:
+            self.open_popup_window(size=[300, 125], title="Fejl", message="Afsender navn ikke indtastet.")
+            return
+            
+        
+        self.letter_type = self.letter_type_frame.get()
+        if self.letter_type == '4-mdrs. brev' or self.letter_type == 'Gradbrev (stud.)':
+            recipients = utils.get_students(self.recipient_frame.get())
+        elif self.letter_type == 'Gradbrev (vejl.)':
+            recipients = utils.get_vejledere(self.recipient_frame.get())
+            students = utils.get_students(self.recipient_frame.get())
+            
+        secretaries = utils.get_secretaries(self.letter_type_frame.get())
+        
+        # Test secretaries
+        for i in range(len(recipients[1])):
+            try:
+                cc = secretaries[recipients[1][i]]
+            except:
+                self.open_popup_window(size=[300, 125], title="Fejl", message=f"Kunne ikke finde sekretær for {recipients[1][i]} i modtagerliste.\nTjek om du har valgt den rigtige brevtype og modtagerliste.")
                 return
 
-    if brev_type == "Gradbreve (Vejl.)":
-        vejledere = get_vejledere(modtager_liste)
-    
-    unresolved = []
-    for i in range(len(students[0])):
-        emne_text = emne
-        indhold_text = indhold    
-        # Replace all placeholders in email with correct names
-        emne_text = emne_text.replace('[student navn]', students[0][i])
-        indhold_text = indhold_text.replace('[student navn]', students[0][i])
-        if brev_type == "Gradbreve (Vejl.)":
-            indhold_text = indhold_text.replace('[modtager navn]', vejledere[0][i])
-            modtager = vejledere[0][i]
+        final_recommendations_path = None
+        if isinstance(self.file_frame, FileFrame):
+            vedh_filer_path = self.file_frame.get()
         else:
-            indhold_text = indhold_text.replace('[modtager navn]', students[0][i])
-            modtager = students[0][i]
-        
-        indhold_text = indhold_text.replace('[afsender navn]', afsender_navn)
+            vedh_filer_path = self.file_frame.get(self.file_frame.letters_button)
+            final_recommendations_path = self.file_frame.get(self.file_frame.final_recommendations_button)
 
-        try:
-            cc = secretaries[students[1][i]]
-        except KeyError:
-            open_error_window(root, f'Kunne ikke finde sekretær for {students[0][i]}\nTjek om du har valgt den rigtige brevtype og modtagerliste', size="325x40")
+        vedh_filer = utils.get_vedh_filer(vedh_filer_path)
+        if len(vedh_filer) != len(recipients[0]):
+            self.open_popup_window(size=[300, 125], title="Fejl", message="Antal vedhæftede filer stemmer ikke overens med antal modtagere.")
+            return
+
+        if final_recommendations_path is not None:
+            final_recommendations = utils.get_final_recommendations(final_recommendations_path)
+            if len(final_recommendations) != len(recipients[0]):
+                self.open_popup_window(size=[300, 125], title="Fejl", message="Antal final recommendations stemmer ikke overens med antal modtagere.")
+                return
+        
+
+        # Test recipients
+        resolved_recipients = []
+        unresolved_recipients = []
+        resolved_secretaries = []
+        unresolved_secretaries = []
+        resolved_vedh_filer = []
+        unresolved_vedh_filer = []
+        if self.letter_type == 'Gradbrev (vejl.)':
+            resolved_students = []
+            unresolved_students = []
+
+        for i in range(len(recipients[0])):
+            if not utils.test_recipient(recipients[0][i]): # If we cannot find the recipient in the system
+                unresolved_recipients.append(recipients[0][i])
+                unresolved_secretaries.append(secretaries[recipients[1][i]])
+                unresolved_vedh_filer.append(vedh_filer[i])
+                if self.letter_type == 'Gradbrev (vejl.)':
+                    unresolved_students.append(students[0][i])
+            else:
+                resolved_recipients.append(recipients[0][i])
+                resolved_secretaries.append(secretaries[recipients[1][i]])
+                resolved_vedh_filer.append(vedh_filer[i])
+                if self.letter_type == 'Gradbrev (vejl.)':
+                    resolved_students.append(students[0][i])
+
+        # Set all necessary variables
+        self.resolved_recipients = resolved_recipients
+        self.unresolved_recipients = unresolved_recipients
+        self.resolved_secretaries = resolved_secretaries
+        self.unresolved_secretaries = unresolved_secretaries
+        self.resolved_vedh_filer = resolved_vedh_filer
+        self.unresolved_vedh_filer = unresolved_vedh_filer
+        if self.letter_type == 'Gradbrev (stud.)':
+            self.final_recommendations = final_recommendations
+        if self.letter_type == 'Gradbrev (vejl.)':
+            self.resolved_students = resolved_students
+            self.unresolved_students = unresolved_students
+
+        # Open popup window with unresolved names
+        if len(self.unresolved_recipients) > 0:
+            self.open_send_popup_window(unresolved_names=self.unresolved_recipients)
+        else:
+            self.send_breve()
+        
+
+
+    def send_breve(self):
+        # TODO: Implement auto detecting language (see set_content() method)
+        num_recipients = len(self.resolved_recipients)
+        
+        for i in range(num_recipients):
+            recipient = self.resolved_recipients[i]
+            vedh_fil = self.resolved_vedh_filer[i]
+            cc = self.resolved_secretaries[i]
+
+            subject_text = self.subject_frame.get()
+            content_text = self.content_frame.get()
+            
+            # Replace placeholder text
+            self.letter_type = self.letter_type_frame.get()
+            if self.letter_type == 'Gradbrev (vejl.)': 
+                student = self.resolved_students[0][i]
+                subject_text = subject_text.replace('[student navn]', student)
+                content_text = content_text.replace('[student navn]', student)
+            
+            content_text = content_text.replace('[modtager navn]', recipient)
+            content_text = content_text.replace('[afsender navn]', self.sender_frame.get())
+
+            if self.letter_type_frame.get() == 'Gradbrev (stud.)':
+                best_final_recommendation = utils.get_best_matching_final_recommendation(recipient, self.final_recommendations)
+                if best_final_recommendation == "":
+                    self.open_popup_window(size=[300, 125], title="Fejl", message=f"Kunne ikke finde final recommendation for {recipient}.")
+                    return
+                vedh_fil = vedh_fil + ';' + best_final_recommendation
+            
+
+            unresolved_list = []
+            unresolved_cc_list = []
+            self.send_mode = self.send_button_frame.get_send_mode()
+            if self.send_mode == 'auto':
+                unresolved_recipient, unresolved_cc = utils.display_email(recipient, cc, subject_text, content_text, vedh_fil)
+                if unresolved_recipient != "":
+                    unresolved_list.append(unresolved_recipient)
+                if unresolved_cc != "":
+                    unresolved_cc_list.append(unresolved_cc)
+            elif self.send_mode == 'manuel':
+                unresolved_recipient, unresolved_cc = utils.display_email(recipient, cc, subject_text, content_text, vedh_fil)
+                if unresolved_recipient != "":
+                    unresolved_list.append(unresolved_recipient)
+                if unresolved_cc != "":
+                    unresolved_cc_list.append(unresolved_cc)
+
+        if len(unresolved_list) > 0:
+            self.open_popup_window(size=[300, 125], title="Advarsel!", message=f"Breve sendt til {num_recipients - len(unresolved_list)}\nKunne ikke sende breve til {len(unresolved_list)} modtagere:\n{', '.join(unresolved_list)}")
+        elif len(unresolved_cc_list) > 0:
+            self.open_popup_window(size=[300, 125], title="Advarsel!", message=f"Breve sendt til {num_recipients - len(unresolved_cc_list)}\nKunne ikke sende breve til {len(unresolved_cc_list)} modtagere:\n{', '.join(unresolved_cc_list)}")
+        else:
+            self.open_popup_window(size=[300, 125], title=f"Succes: {num_recipients} breve sendt", message=f"Der blev sendt breve til alle {num_recipients} modtagere.")
+
+            
+
+class LetterTypeFrame(ctk.CTkFrame):
+    def __init__(self, master, width=300, corner_radius=0):
+        super().__init__(master, width, corner_radius)
+        self.master = master
+        self.width = width
+        self.corner_radius = corner_radius
+        
+        # Label
+        self.brevtype_label = ctk.CTkLabel(self, text='Brevtype', font=ctk.CTkFont(size=20, weight='bold'))
+        self.brevtype_label.grid(row=0, column=0, padx=10, pady=(10,5), sticky='nsew')
+
+        # OptionMenu
+        self.brevtyper = ['4-mdrs. brev', 'Gradbrev (stud.)', 'Gradbrev (vejl.)']
+        self.brevtype_var = tk.StringVar()
+        self.brevtype_option_menu = ctk.CTkOptionMenu(self, variable=self.brevtype_var, command=self.set, values=self.brevtyper, width=275)
+        self.brevtype_option_menu.grid(row=1, column=0, padx=10, pady=(0,10), sticky='nsew')
+        self.brevtype_option_menu.set('Vælg brevtype')
+
+
+    def get(self):
+        return self.brevtype_var.get()
+    
+
+    def set(self, value):
+        if self.master.file_frame.winfo_exists():
+            if value == 'Gradbrev (stud.)' and isinstance(self.master.file_frame, FileFrame):
+                self.master.file_frame.destroy()
+                self.master.file_frame = MultipleFilesFrame(self.master, width=300, corner_radius=0)
+            elif isinstance(self.master.file_frame, MultipleFilesFrame):
+                self.master.file_frame.destroy()
+                self.master.file_frame = FileFrame(self.master, width=300, corner_radius=0)
+            
+            self.master.file_frame.grid(row=1, column=0, sticky='nsew')
+            self.master.file_frame.grid_rowconfigure(0, weight=1)
+            self.master.file_frame.grid_rowconfigure(1, weight=2)
+                
+        self.master.set_content()
+        self.master.update_send_button()
+
+
+class SenderFrame(ctk.CTkFrame):
+    def __init__(self, master, width=300, corner_radius=0):
+        super().__init__(master, width, corner_radius)
+        self.master = master
+        self.width = width
+        self.corner_radius = corner_radius
+        
+        # Label
+        self.sender_label = ctk.CTkLabel(self, text='Afsender', font=ctk.CTkFont(size=20, weight='bold'))
+        self.sender_label.grid(row=0, column=0, padx=10, pady=(10,5))
+
+        # Entry
+        self.sender_entry = ctk.CTkEntry(self, placeholder_text='Afsender', width=275)
+        self.sender_entry.grid(row=1, column=0, padx=10, pady=(0,10), sticky='nsew')
+        
+    def get(self):
+        text = self.sender_entry.get()
+        if text == '':
+            self.master.open_popup_window(size=[300, 125], title="Fejl", message="Ingen afsender valgt.")
+            return None
+        return text
+
+
+class FileFrame(ctk.CTkFrame):
+    def __init__(self, master, width=300, corner_radius=0):
+        super().__init__(master, width, corner_radius)
+        self.master = master
+        self.width = width
+        self.corner_radius = corner_radius
+        
+        # Label
+        self.file_label = ctk.CTkLabel(self, text='Vedhæftede filer', font=ctk.CTkFont(size=20, weight='bold'))
+        self.file_label.grid(row=0, column=0, padx=10, pady=(10,5))
+
+        # Button
+        self.file_button = ctk.CTkButton(self, text='Vælg mappe med breve', width=275, command=self.browse_files)
+        self.file_button.grid(row=1, column=0, padx=10, pady=(0,10), sticky='nsew')
+
+        # Initialize filename
+        self.filename = None
+        
+    def browse_files(self):
+        self.filename =  ctk.filedialog.askdirectory(
+            initialdir='/',
+            title="Vælg mappe med breve",
+            parent=self.master
+        )
+        
+        if self.filename != "":
+            self.set(self.filename)
+        else: 
+            self.set('Vælg mappe med breve')
+        
+    
+    def get(self):
+        if self.filename is None:
+            self.master.open_popup_window(size=[300, 125], title="Fejl", message="Ingen mappe valgt.")
+        else:
+            return self.filename
+        
+    def set(self, value):
+        if value != 'Vælg mappe med breve':
+            self.file_button.configure(text=value.split('/')[-1])
+        else:
+            self.file_button.configure(text=value)
+        self.filename = value
+        self.master.update_send_button()
+
+
+class MultipleFilesFrame(ctk.CTkFrame):
+    def __init__(self, master, width=300, corner_radius=0):
+        super().__init__(master, width, corner_radius)
+        self.master = master
+        self.width = width
+        self.corner_radius = corner_radius
+
+        # Label
+        self.file_label = ctk.CTkLabel(self, text='Vedhæftede filer', font=ctk.CTkFont(size=20, weight='bold'))
+        self.file_label.grid(row=0, column=0, padx=10, pady=(10,5), columnspan=2, sticky='nsew')
+
+        # Button 1
+        self.letters_button = ctk.CTkButton(self, text='Vælg mappe med breve', width=140, command=lambda: self.browse_files(self.letters_button))
+        self.letters_button.grid(row=1, column=0, padx=(10,5), pady=(0,10), sticky='nsew')
+
+        # Button 2
+        self.final_recommendations_button = ctk.CTkButton(self, text='Vælg mappe med\nfinal recommendations', width=140, command=lambda: self.browse_files(self.final_recommendations_button))
+        self.final_recommendations_button.grid(row=1, column=1, padx=(5,10), pady=(0,10), sticky='nsew')
+
+        # Initialize filenames
+        self.letters_filename = None
+        self.final_recommendations_filename = None
+
+    def browse_files(self, button):
+        if button == self.letters_button:
+            self.letters_filename =  ctk.filedialog.askdirectory(
+                initialdir='/',
+                title="Vælg mappe med breve",
+                parent=self.master
+            )
+
+            if self.letters_filename != "":
+                self.set(self.letters_filename, button)
+            else:
+                self.set('Vælg mappe med breve', button)
+
+        elif button == self.final_recommendations_button:
+            self.final_recommendations_filename =  ctk.filedialog.askdirectory(
+                initialdir='/',
+                title="Vælg mappe med final recommendations",
+                parent=self.master
+            )
+
+            if self.final_recommendations_filename != "":
+                self.set(self.final_recommendations_filename, button)
+            else:
+                self.set('Vælg mappe med\nfinal recommendations', button)
+
+    
+    def get(self, button):
+        if button == self.letters_button:
+            if self.letters_filename is None:
+                self.master.open_popup_window(size=[300, 125], title="Fejl", message="Ingen mappe med breve valgt.")
+                return
+            return self.letters_filename
+        elif button == self.final_recommendations_button:
+            if self.final_recommendations_filename is None:
+                self.master.open_popup_window(size=[300, 125], title="Fejl", message="Ingen mappe med final recommendations valgt.")
+                return
+            return self.final_recommendations_filename
+
+
+    def set(self, value, button):
+        if button == self.letters_button:
+            if value != 'Vælg mappe med breve':
+                self.letters_button.configure(text=value.split('/')[-1])
+            else:
+                self.letters_button.configure(text=value)
+            self.letters_filename = value
+        elif button == self.final_recommendations_button:
+            if value != 'Vælg mappe med final recommendations':
+                self.final_recommendations_button.configure(text=value.split('/')[-1])
+            else:
+                self.final_recommendations_button.configure(text=value)
+            self.final_recommendations_filename = value
+        self.master.update_send_button()
+        
+
+
+class RecipientFrame(ctk.CTkFrame):
+    def __init__(self, master, width=300, corner_radius=0):
+        super().__init__(master, width, corner_radius)
+        self.master = master
+        self.width = width
+        self.corner_radius = corner_radius
+        
+        # Label
+        self.recipient_label = ctk.CTkLabel(self, text='Vælg modtager liste', font=ctk.CTkFont(size=20, weight='bold'))
+        self.recipient_label.grid(row=0, column=0, padx=10, pady=(10,5))
+
+        # Button
+        self.recipient_button = ctk.CTkButton(self, text='Vælg modtager liste', width=275, command=self.browse_files)
+        self.recipient_button.grid(row=1, column=0, padx=10, pady=(0,10), sticky='nsew')
+        
+        # Initialize filename
+        self.filename = None
+        
+    def get(self):
+        if self.filename == None:
+            self.master.open_popup_window(size=[300, 125], title="Fejl", message="Ingen modtagerliste valgt.")
+            return
+        return self.filename
+    
+    def set(self, value):
+        if value != 'Vælg modtager liste':
+            self.recipient_button.configure(text=value.split('/')[-1])
+        else:
+            self.recipient_button.configure(text=value)
+        self.filename = value
+        self.master.update_send_button()
+        
+    def browse_files(self):
+        self.filename =  ctk.filedialog.askopenfilename(
+            initialdir='/',
+            title="Vælg modtager liste",
+            filetypes=[("Excel files", "*.xlsx")],
+            parent=self.master
+        )
+        
+        if self.filename != "":
+            self.set(self.filename)
+        else:
+            self.set('Vælg modtager liste')
+
+
+class LanguageFrame(ctk.CTkFrame):
+    def __init__(self, master, width=300, corner_radius=0):
+        super().__init__(master, width, corner_radius)
+        self.master = master
+        self.width = width
+        self.corner_radius = corner_radius
+    
+        # Label
+        self.language_label = ctk.CTkLabel(self, text='Sprog:', font=ctk.CTkFont(size=20, weight='bold'))
+        self.language_label.grid(row=0, column=0, padx=10, pady=10, sticky='nsw')
+
+        # Radiobuttons
+        self.language_var = tk.StringVar()
+        self.language_var.set('da')
+        self.language_radiobutton1 = ctk.CTkRadioButton(self, text='Dansk', command=self.master.set_content, variable=self.language_var, value='da')
+        self.language_radiobutton1.grid(row=0, column=1, padx=(10,5), pady=10, sticky='nse')
+        self.language_radiobutton2 = ctk.CTkRadioButton(self, text='Engelsk', command=self.master.set_content, variable=self.language_var, value='en')
+        self.language_radiobutton2.grid(row=0, column=2, padx=0, pady=10, sticky='nse')
+        self.language_radiobutton3 = ctk.CTkRadioButton(self, text='Automatisk', command=self.master.set_content, variable=self.language_var, value='auto')
+        self.language_radiobutton3.grid(row=0, column=3, padx=(5,10), pady=10, sticky='nse')
+
+    def get(self):
+        return self.language_var.get()
+
+
+class SubjectFrame(ctk.CTkFrame):
+    def __init__(self, master, width=600, corner_radius=0):
+        super().__init__(master, width, corner_radius)
+        self.master = master
+        self.width = width
+        self.corner_radius = corner_radius
+        
+        # Label
+        self.subject_label = ctk.CTkLabel(self, text='Emne:', font=ctk.CTkFont(size=20, weight='bold'))
+        self.subject_label.grid(row=0, column=0, padx=10, pady=10, sticky='nsw')
+
+        # Entry
+        self.subject_entry = ctk.CTkEntry(self, placeholder_text='Emne', width=500)
+        self.subject_entry.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
+        
+    def get(self):
+        return self.subject_entry.get()
+    
+    def set(self, value):
+        self.subject_entry.delete(0, tk.END)
+        self.subject_entry.insert(0, value)
+
+
+class ContentFrame(ctk.CTkFrame):
+    def __init__(self, master, width=600, corner_radius=0):
+        super().__init__(master, width, corner_radius)
+        self.master = master
+        self.width = width
+        self.corner_radius = corner_radius
+        
+        # Label
+        self.content_label = ctk.CTkLabel(self, text='Indhold tekst:', font=ctk.CTkFont(size=20, weight='bold'))
+        self.content_label.grid(row=0, column=0, padx=10, pady=10, sticky='nsw')
+
+        # Text
+        self.content_text = ctk.CTkTextbox(self)
+        self.content_text.grid(row=1, column=0, padx=10, pady=(0,10), sticky='nsew')
+        
+    def get(self):
+        return self.content_text.get(1.0, tk.END)
+    
+    def set(self, value):
+        self.content_text.delete(1.0, tk.END)
+        self.content_text.insert(tk.END, value)
+
+
+class BottomFrame(ctk.CTkFrame):
+    def __init__(self, master, width=600, corner_radius=0):
+        super().__init__(master, width, corner_radius)
+        self.master = master
+        self.width = width
+        self.corner_radius = corner_radius
+        
+        # See recipients button
+        self.see_recipients_button = ctk.CTkButton(self, text='Se modtagere', width=250, height=50, command=self.open_recipients_window)
+        self.see_recipients_button.grid(row=0, column=0, rowspan=2, padx=10, pady=10, sticky='nsw')
+
+        # Send mode radio buttons
+        self.send_mode_var = tk.StringVar()
+        self.send_mode_var.set('auto')
+        self.send_mode_radiobutton1 = ctk.CTkRadioButton(self, text='Auto', variable=self.send_mode_var, value='auto')
+        self.send_mode_radiobutton1.grid(row=0, column=1, padx=10, pady=10, sticky='nsew')
+        self.send_mode_radiobutton2 = ctk.CTkRadioButton(self, text='Manuel', variable=self.send_mode_var, value='manuel')
+        self.send_mode_radiobutton2.grid(row=1, column=1, padx=10, pady=10, sticky='nsew')
+
+        # Send Button
+        self.send_button = ctk.CTkButton(self, text='Send breve', width=250, height=50, command=self.send)
+        self.send_button.grid(row=0, column=2, rowspan=2, padx=10, pady=10, sticky='nse')
+
+        # Set recipients window
+        self.recipients_window = None
+        
+    def get_send_mode(self):
+        return self.send_mode_var.get()
+    
+    def open_recipients_window(self):
+        if self.recipients_window is None or not self.recipients_window.winfo_exists():
+            self.recipients_window = RecipientsWindow(self, self.master.recipient_frame.get())
+            if self.recipients_window.winfo_exists():
+                self.recipients_window.focus()
+        else:
+            self.recipients_window.focus()
+    
+    def send(self):
+        # It is important that the test_breve method is called before the send_breve method
+        # DO NOT call send_breve directly, it will be handled by test_breve
+        self.master.test_breve()
+
+
+class RecipientsWindow(ctk.CTkToplevel):
+    def __init__(self, root, recipient_path, size=[400, 400]) -> None:
+        super().__init__()
+        
+        self.root = root
+        self.main_application = root.master
+        self.size = size
+        self.recipient_path = recipient_path
+        self.letter_type = self.main_application.letter_type_frame.get()
+        
+        if self.recipient_path is None:
+            self.main_application.open_popup_window(size=[300, 125], title="Fejl", message="Ingen modtagerliste valgt.")
+            self.destroy()
             return
         
-        cc = secretaries[students[1][i]]
-        vedh_fil = vedh_filer_paths[i]
+        if not os.path.exists(self.recipient_path):
+            self.main_application.open_popup_window(size=[300, 125], title="Fejl", message="Den valgte modtagerliste eksisterer ikke.")
+            self.destroy()
+            return
         
+        if not self.main_application.letter_type_frame.get() in self.main_application.letter_type_frame.brevtyper:
+            self.main_application.open_popup_window(size=[300, 125], title="Fejl", message="Brevtype er ikke valgt eller ugyldig.")
+            self.destroy()
+            return
 
-        if brev_type == "Gradbreve (Stud.)":
-            best_match_score = 0
-            for recommendation in final_recommendations:
-                score = 0
-                for name in students[0][i].split(' '):
-                    if name in recommendation:
-                        score += 1
-                        
-                if score > best_match_score:
-                    best_match_score = score
-                    best_match = recommendation
-
-            vedh_fil = vedh_filer_paths[i] + ';' + best_match
-
-        unresolved_ = display_email(modtager, cc, emne_text, indhold_text, vedh_fil) # For testing purposes
-        # unresolved_ = send_email(modtager, cc, emne_text, indhold_text, vedh_fil)
-        unresolved += unresolved_
-
-    if len(unresolved) > 0:
-        open_error_window(root, f'Kunne ikke sende mail til {len(unresolved)} modtagere:\n{unresolved}', size="400x40")
+        # Position the window in the center of the root window
+        x = self.root.winfo_x() + self.root.winfo_width() // 2 - self.size[0] // 2
+        y = self.root.winfo_y() + self.root.winfo_height() // 2 - self.size[1] // 2
+        self.geometry('+%d+%d' % (x, y))
         
-    open_error_window(root, f'Sendte mail til {len(students[0]) - len(unresolved)} modtagere', window_title='Succes', size="325x40")
+        self.frame = ctk.CTkScrollableFrame(self, width=self.size[0], height=self.size[1])
+        self.frame.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
+        
+        self.file = pd.read_excel(self.recipient_path)
+        self.file = self.file.dropna()
+        
+        if self.letter_type == '4-mdrs. brev' or self.letter_type == 'Gradbrev (stud.)':
+            self.recipients = utils.get_students(self.recipient_path)
+        elif self.letter_type == 'Gradbrev (vejl.)':
+            self.recipients = utils.get_vejledere(self.recipient_path)
+        else:
+            self.main_application.open_popup_window(size=[300, 125], title="Fejl", message="Ugyldig brevtype.")
+            self.destroy()
+            return
+        
+        self.secretaries = utils.get_secretaries(self.letter_type)
+        
+        for institute in self.recipients[1]:
+            if not institute in self.secretaries.keys():
+                self.main_application.open_popup_window(size=[300, 125], title="Fejl", 
+                                                        message=f"Kunne ikke finde sekretær for {institute} i modtagerliste.\n"
+                                                        +"Dette kan skyldes at du har valgt forskellig brevtype og modtagerliste.\n"
+                                                        +"Tjek om instituttet er stavet korrekt i modtagerliste, eller om du har valgt den rigtige modtagerliste.")
+                self.destroy()
+                return
+        
+        # Configure the window title
+        self.num_recipients = len(self.recipients[0])
+        self.title(f'Liste over {self.num_recipients} modtagere')
+
+        
+        self.to_label = ctk.CTkLabel(self.frame, text='Modtagere:', font=ctk.CTkFont(size=20, weight='bold'))
+        self.to_label.grid(row=0, column=0, padx=(10,20), pady=10, sticky='nsw')
+        self.cc_label = ctk.CTkLabel(self.frame, text='CC:', font=ctk.CTkFont(size=20, weight='bold'))
+        self.cc_label.grid(row=0, column=1, padx=(20,10), pady=10, sticky='nsw')
+        
+        row = 1
+        for i in range(self.num_recipients):
+            to_label = ctk.CTkLabel(self.frame, text=self.recipients[0][i], font=ctk.CTkFont(size=12))
+            to_label.grid(row=row, column=0, padx=(10,20), pady=5, sticky='nsw')
+            cc_label = ctk.CTkLabel(self.frame, text=self.secretaries[self.recipients[1][i]], font=ctk.CTkFont(size=12))
+            cc_label.grid(row=row, column=1, padx=(20,10), pady=5, sticky='nsw')
+            row += 1
+            
+        self.frame.pack(side='top', fill='both', expand=True)
 
 
-def BrevGUI():
-    root = Tk()
-    root.geometry("600x625")
-    root.title("BrevGUI")
+class PopupWindow(ctk.CTkToplevel):
+    def __init__(self, root, size, title, message) -> None:
+        super().__init__()
 
-    frm = ttk.Frame(root)
-    frm.grid()
+        self.root = root
+        self.size = size
+        self.window_title = title
+        self.message = message
+        
+        # Configure the main window
+        self.title(self.window_title)
+        
+        # Position the window in the center of the root window
+        x = self.root.winfo_x() + self.root.winfo_width() // 2 - self.size[0] // 2
+        y = self.root.winfo_y() + self.root.winfo_height() // 2 - self.size[1] // 2
+        self.geometry('+%d+%d' % (x, y))
+        
+        
+        # Configure the label
+        self.label = ctk.CTkLabel(self, text=self.message, font=ctk.CTkFont(size=20, weight='bold'))
+        self.label.grid(row=0, column=0, padx=10, pady=10, sticky='nsew')
+        
+        # Configure the button
+        self.button = ctk.CTkButton(self, text='OK', width=50, height=25, command=self.destroy)
+        self.button.grid(row=1, column=0, padx=10, pady=10)
+        
+        self.wm_transient(self.root)
+    
 
-    # Vælg brevtype
-    brev_label = Label(frm, text="Brevtype")
-    brev_options = ["4-mdrs. brev", "Gradbreve (Stud.)", "Gradbreve (Vejl.)"]
-    clicked = StringVar()
-    clicked.set(brev_options[0])
 
-    brev_type = OptionMenu(
-        frm,
-        clicked,
-        *brev_options,
-        command=lambda x: set_text_of_email(email_text, emne_entry, email=clicked.get(), sprog=sprog.get())
-    )
-    brev_type.config(width=40, height=2)
+class SendPopupWindow(ctk.CTkToplevel):
+    def __init__(self, root, size, unresolved_names) -> None:
+        super().__init__()
 
-    # Indtast navn
-    afsender_label = Label(frm, text="Afsender navn")
-    afsender_navn_var = StringVar()
-    afsender_navn = Entry(frm, textvariable=afsender_navn_var, width=45)
-    afsender_navn_var.trace('w', lambda *args: update_send_button_color(send_button, afsender_navn, vedh_filer, modt_liste))
+        self.root = root
+        self.size = size
+        self.unresolved_names = unresolved_names
+        
+        # Configure the main window
+        self.title('Advarsel: Kunne ikke finde mail')
+        
+        # Position the window in the center of the root window
+        x = self.root.winfo_x() + self.root.winfo_width() // 2 - self.size[0] // 2
+        y = self.root.winfo_y() + self.root.winfo_height() // 2 - self.size[1] // 2
+        self.geometry('+%d+%d' % (x, y))
+        
+        
+        # Configure the label
+        self.label = ctk.CTkLabel(self, text=f'Kunne ikke finde mail på {len(unresolved_names)} modtagere:', font=ctk.CTkFont(size=20, weight='bold'))
+        self.label.grid(row=0, column=0, padx=10, pady=10, sticky='nsew', columnspan=2)
+        
+        # Configure the scrollable frame
+        self.frame = ctk.CTkScrollableFrame(self, width=self.size[0]-20)
+        self.frame.grid(row=1, column=0, padx=10, pady=10, sticky='nsew', columnspan=2)
 
-    # Sprog
-    sprog = StringVar()
-    sprog_label = Label(frm, text="Sprog:")
-    sprog_radio_en = Radiobutton(frm, text="Engelsk", variable=sprog, value="en", command=lambda: set_text_of_email(email_text, emne_entry, email=clicked.get(), sprog=sprog.get()))
-    sprog_radio_dk = Radiobutton(frm, text="Dansk", variable=sprog, value="dk", command=lambda: set_text_of_email(email_text, emne_entry, email=clicked.get(), sprog=sprog.get()))
-    sprog_radio_en.select()
+        for i, unresolved_name in enumerate(unresolved_names):
+            label = ctk.CTkLabel(self.frame, text=unresolved_name, font=ctk.CTkFont(size=12))
+            label.grid(row=i, column=0, padx=5, pady=5, sticky='nswe')
 
-    # Vedhæftede filer
-    path_vedh_filer = ""
-    vedh_filer_label = Label(frm, text="Vedhæftede filer")
-    vedh_filer = Button(
-        frm,
-        text="Vælg vedhæftede filer",
-        command=lambda: [browse_files(
-            vedh_filer,
-            "directory",
-            "Vælg mappe med vedhæftede filer",
-            "Vælg vedhæftede filer",
-        ), update_send_button_color(
-            send_button, afsender_navn, vedh_filer, modt_liste
-        )],
-        width=39,
-        height=2,
-    )
 
-    # Modtager liste
-    path_modtager_liste = ""
-    modt_liste_label = Label(frm, text="Modtager liste")
-    modt_liste = Button(
-        frm,
-        text="Vælg modtager liste",
-        command=lambda: [browse_files(
-            modt_liste, "single", "Vælg excel-ark med modtagere", "Vælg modtager liste"
-        ), update_send_button_color(
-            send_button, afsender_navn, vedh_filer, modt_liste
-        )],
-        width=39,
-        height=2
-    )
+        # Configure the buttons
+        self.save_unresolved_button = ctk.CTkButton(self, text='Gem uafklarede modtagere', width=250, height=50, command=self.save_unresolved)
+        self.save_unresolved_button.grid(row=2, column=0, padx=10, pady=10, columnspan=2)
 
-    # Emne
-    emne_label = Label(frm, text="Emne:")
-    emne_entry = Entry(frm, width=85)
+        self.continue_button = ctk.CTkButton(self, text='Fortsæt med at sende alligevel', width=125, height=50, command=self.send_anyway)
+        self.continue_button.grid(row=3, column=0, padx=10, pady=10)
 
-    # Tekst
-    email_label = Label(frm, text="Tekst:")
-    email_text = Text(frm, width=71, height=19)
-    set_text_of_email(email_text, emne_entry, clicked.get())
+        self.continue_button = ctk.CTkButton(self, text='Annuler afsending', width=125, height=50, command=self.cancel)
+        self.continue_button.grid(row=3, column=1, padx=10, pady=10)
+        
+        self.wm_transient(self.root)
+    
 
-    # Send
-    send_button = Button(
-        frm,
-        text="SEND BREVE",
-        width=30,
-        height=2,
-        bg='#f69697',
-        activebackground='#f69697',
-        command=lambda: send_breve(
-            root, 
-            send_button,
-            modt_liste.cget('text'), 
-            vedh_filer.cget('text'),
-            afsender_navn_var.get(),
-            clicked.get(),
-            emne_entry.get(),
-            email_text.get("1.0", "end")
+    def save_unresolved(self):
+        file = ctk.filedialog.asksaveasfile(
+            mode='w',
+            defaultextension=".xlsx",
+            filetypes=[("Excel files", "*.xlsx")],
+            parent=self
         )
-    )
+        if file is None:
+            return
+        
+        df = pd.DataFrame({'Modtagere': self.unresolved_names,
+                           'Sekretærer': self.root.unresolved_secretaries,
+                           'Vedhæftede filer': self.root.unresolved_vedh_filer})
+        if self.root.letter_type == 'Gradbrev (vejl.)':
+            df['Students'] = self.root.unresolved_students
 
-    # Se modtagere
-    se_modtagere_button = Button(frm, text="Se modtagere", width=30, height=2, command=lambda: open_new_window(root, modt_liste.cget("text"), clicked.get()))
+        df.to_excel(file.name, index=False)
+        file.close()
 
-
-    # Grid layout
-    brev_label.grid(column=0, row=0, padx=10, pady=(10, 0), columnspan=2)
-    brev_type.grid(column=0, row=1, padx=(10, 10), pady=(0, 10), columnspan=2)
-    afsender_label.grid(column=2, row=0, pady=(5, 0), sticky="", columnspan=2)
-    afsender_navn.grid(column=2, row=1, padx=(0, 10), sticky="n", columnspan=2)
-    vedh_filer_label.grid(column=0, row=2, padx=10, columnspan=2)
-    modt_liste_label.grid(column=2, row=2, padx=(0, 10), columnspan=2)
-    vedh_filer.grid(column=0, row=3, padx=10, columnspan=2)
-    modt_liste.grid(column=2, row=3, padx=(0, 10), columnspan=2)
-    sprog_label.grid(column=0, row=4, padx=10, pady=10, sticky="w")
-    sprog_radio_dk.grid(column=1, row=4, padx=0)
-    sprog_radio_en.grid(column=2, row=4, padx=10)
-    emne_label.grid(column=0, row=5, padx=10, pady=10, sticky="w")
-    emne_entry.grid(column=1, row=5, padx=(0, 10), pady=10, sticky="e", columnspan=3)
-    email_label.grid(column=0, row=6, padx=10, sticky="w", columnspan=4)
-    email_text.grid(column=0, row=7, padx=10, columnspan=4)
-    se_modtagere_button.grid(column=0, row=8, padx=10, pady=10, sticky="w", columnspan=2)
-    send_button.grid(column=2, row=8, padx=10, pady=10, sticky="e", columnspan=2)
-
-    root.mainloop()
+    def send_anyway(self):
+        self.root.send_breve()
+        self.destroy()
+    
+    def cancel(self):
+        self.destroy()
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == "__main__":
-    BrevGUI()
+if __name__ == '__main__':
+    ctk.set_appearance_mode('Dark') # 'System', 'Light', 'Dark'
+    ctk.set_default_color_theme('blue') # 'blue', 'green', 'dark-blue'
+    app = MainApplication()
+    app.mainloop()
+
