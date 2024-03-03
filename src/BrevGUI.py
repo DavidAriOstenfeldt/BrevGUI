@@ -233,7 +233,7 @@ class MainApplication(ctk.CTk):
             # Replace placeholder text
             self.letter_type = self.letter_type_frame.get()
             if self.letter_type == 'Gradbrev (vejl.)': 
-                student = self.resolved_students[0][i]
+                student = self.resolved_students[i]
                 subject_text = subject_text.replace('[student navn]', student)
                 content_text = content_text.replace('[student navn]', student)
             
