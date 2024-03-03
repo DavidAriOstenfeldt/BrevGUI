@@ -1,6 +1,15 @@
 # BrevGUI
 A program to automate sending out personalised emails with attachments to individual recipients.
 
+## Preview
+Main application:
+![main application preview](screenshots/main_application.png)
+
+Main application award of degree preview:
+![main application gradbrev preview](screenshots/main_application_gradbrev.png)
+
+
+## Build
 To build using PyInstaller, see info at [ctk documentation](https://customtkinter.tomschimansky.com/documentation/packaging):
 
 1. Find the install location of the customtkinter library:
