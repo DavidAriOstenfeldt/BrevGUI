@@ -37,4 +37,4 @@ Ensure that the following packages are installed when building:
 - The program needs the list of secretaries at the institutes in order to run.
 
 ## TODO
-- Look into automatic mail merging as part of the process [see link](https://pypi.org/project/docx-mailmerge/)
+- Look into automatic mail merging as part of the process [see link](https://github.com/iulica/docx-mailmerge)
