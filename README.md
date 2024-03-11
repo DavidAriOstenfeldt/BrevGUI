@@ -35,3 +35,6 @@ Ensure that the following packages are installed when building:
 ## Notes
 - The program needs the .txt files in the content folder, in order to run.
 - The program needs the list of secretaries at the institutes in order to run.
+
+## TODO
+- Look into automatic mail merging as part of the process [see link](https://pypi.org/project/docx-mailmerge/)
